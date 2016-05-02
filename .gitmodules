@@ -1,0 +1,3 @@
+[submodule "PyEcho"]
+	path = PyEcho
+	url = https://github.com/scotttherobot/PyEcho
