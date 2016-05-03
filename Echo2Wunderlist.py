@@ -11,6 +11,7 @@ sys.path.insert(0, './PyEcho')
 import PyEcho
 
 import wunderpy2
+import requests
 import sched
 import time
 
@@ -32,24 +33,38 @@ if len(sys.argv) >= 8:
 scheduler_priority = 1
 list_tag = "(added by Alexa)"
 
-print "Starting Echo2Wunderlist..."
+# Globals
+echo = None
+wunderlist = None
+shopping_wunderlist = None
+todo_wunderlist = None
 
-print "Logging in to Amazon Echo..."
-echo = PyEcho.PyEcho(echo_email, echo_password)
+print "Starting Echo2Wunderlist...\n"
 
-print "Setting up client session to Wunderlist..."
-wunderlist_api = wunderpy2.WunderApi()
-wunderlist = wunderlist_api.get_client(wunderlist_access_token, wunderlist_client_id)
+# Function to initialize our logins and lists
+def initialize():
+  global echo
+  global wunderlist
+  global shopping_wunderlist
+  global todo_wunderlist
 
-# Get our shopping list and to-do list objects from Wunderlist
-all_wunderlists = wunderlist.get_lists()
-for wunderlist_list in all_wunderlists:
-  if wunderlist_list['title'] == wunderlist_shopping_list_name:
-    shopping_wunderlist = wunderlist_list
-    print "Found Wunderlist Shopping List: " + shopping_wunderlist['title']
-  if wunderlist_list['title'] == wunderlist_todo_list_name:
-    todo_wunderlist = wunderlist_list
-    print "Found Wunderlist To-do List: " + todo_wunderlist['title']
+  print "Logging in to Amazon Echo..."
+  echo = PyEcho.PyEcho(echo_email, echo_password)
+
+  print "Setting up client session to Wunderlist..."
+  wunderlist_api = wunderpy2.WunderApi()
+  global wunderlist
+  wunderlist = wunderlist_api.get_client(wunderlist_access_token, wunderlist_client_id)
+
+  # Get our shopping list and to-do list objects from Wunderlist
+  all_wunderlists = wunderlist.get_lists()
+  for wunderlist_list in all_wunderlists:
+    if wunderlist_list['title'] == wunderlist_shopping_list_name:
+      shopping_wunderlist = wunderlist_list
+      print "Found Wunderlist Shopping List: " + shopping_wunderlist['title']
+    if wunderlist_list['title'] == wunderlist_todo_list_name:
+      todo_wunderlist = wunderlist_list
+      print "Found Wunderlist To-do List: " + todo_wunderlist['title']
 
 # Function to move an item from an Echo list and put it in the Wunderlist
 def move_echo_items_to_wunderlist(echo_items, target_wunderlist, echo_remove_function):
@@ -65,27 +80,33 @@ def move_echo_items_to_wunderlist(echo_items, target_wunderlist, echo_remove_fun
 
 # Main function, runs on a scheduler, takes the next scheduler object as a parameter
 def echo2wunderlist(next_scheduler):
-  print "Looking for new Echo Items..."
-  new_items_added = False
+  global echo
+  global wunderlist
+  try:
+    if (echo is None) and (wunderlist is None):
+      initialize()
+    print "Looking for new Echo Items..."
+    new_items_added = False
 
-  shopping_items = echo.shoppingitems()
-  if move_echo_items_to_wunderlist(shopping_items, shopping_wunderlist, echo.deleteShoppingItem):
-    new_items_added = True
+    shopping_items = echo.shoppingitems()
+    if move_echo_items_to_wunderlist(shopping_items, shopping_wunderlist, echo.deleteShoppingItem):
+      new_items_added = True
 
-  todo_items = echo.tasks()
-  if move_echo_items_to_wunderlist(todo_items, todo_wunderlist, echo.deleteTask):
-    new_items_added = True
+    todo_items = echo.tasks()
+    if move_echo_items_to_wunderlist(todo_items, todo_wunderlist, echo.deleteTask):
+      new_items_added = True
 
-  if new_items_added == False:
-    print "No new items\n"
-
+    if new_items_added == False:
+      print "No new items\n"
+  except (requests.ConnectionError, requests.ReadTimeout) as e:
+    print e
+    print "Setting objects to None in attempt to reinitialize the connection\n"
+    echo = None
+    wunderlist = None
   next_scheduler.enter(scheduler_frequency_s, 1, echo2wunderlist, (next_scheduler,))
 
 # If the object creation was successful, start the scheduler to run forever
-if echo and wunderlist:
-  print "Starting Echo2Wunderlist scheduler\n"
-  echo2wunderlist_scheduler = sched.scheduler(time.time, time.sleep)
-  echo2wunderlist_scheduler.enter(scheduler_frequency_s, scheduler_priority, echo2wunderlist, (echo2wunderlist_scheduler,))
-  echo2wunderlist_scheduler.run()
-else:
-  print "Error setting up Echo and/or wWnderlist - check username/passwords/tokens\n"
+print "Starting Echo2Wunderlist scheduler\n"
+echo2wunderlist_scheduler = sched.scheduler(time.time, time.sleep)
+echo2wunderlist_scheduler.enter(scheduler_frequency_s, scheduler_priority, echo2wunderlist, (echo2wunderlist_scheduler,))
+echo2wunderlist_scheduler.run()
