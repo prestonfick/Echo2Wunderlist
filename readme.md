@@ -16,7 +16,7 @@ This also uses PyEcho as a submodule (use `--recursive` when cloning to pull tha
 
 ### Usage
 
-`Usage: python Echo2Wunderlist.py <echo_email> <echo_password> <wunderlist_client_id> <wunderlist_access_token> <wunderlist_shopping_list_name> <wunderlist_todo_list_name> [<scheduler_frequency_s>]`
+`Usage: python Echo2Wunderlist.py <echo_email> <echo_password> <wunderlist_client_id> <wunderlist_access_token> <wunderlist_shopping_list_name> <wunderlist_todo_list_name> [<scheduler_frequency_s>] [<gmail_address> <gmail_app_password>]`
 
 * `echo_email` = Email address tied to your Echo account
 * `echo_password` = Password for your Echo account
@@ -25,6 +25,8 @@ This also uses PyEcho as a submodule (use `--recursive` when cloning to pull tha
 * `wunderlist_shopping_list_name` = The exact name of your shopping list in Wunderlist
 * `wunderlist_todo_list_name` = The exact name of your to-do list in Wunderlist
 * `scheduler_frequency_s` = Rate that the script polls the Echo API in seconds (optional, default is 10s)
+* `gmail_address` = Gmail address, this is used for emailing exception messages (optional)
+* `gmail_app_password` = App specific password for Gmail address (optional)
 
 #### Wunderlist API Access
 

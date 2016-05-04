@@ -14,10 +14,13 @@ import wunderpy2
 import requests
 import sched
 import time
+import traceback
+import smtplib
+from email.mime.text import MIMEText
 
-# Look for the require arguments to the script
+# Look for the required arguments to the script
 if len(sys.argv) < 7:
-  print "Usage: python Echo2Wunderlist.py <echo_email> <echo_password> <wunderlist_client_id> <wunderlist_access_token> <wunderlist_shopping_list_name> <wunderlist_todo_list_name> [<scheduler_frequency_s>]\n"
+  print "Usage: python Echo2Wunderlist.py <echo_email> <echo_password> <wunderlist_client_id> <wunderlist_access_token> <wunderlist_shopping_list_name> <wunderlist_todo_list_name> [<scheduler_frequency_s>] [<gmail_address> <gmail_app_password>]\n"
   sys.exit()
 
 # Setup all the parameters
@@ -30,6 +33,11 @@ wunderlist_todo_list_name = sys.argv[6]
 scheduler_frequency_s = 10 # Default to 10 seconds
 if len(sys.argv) >= 8:
   scheduler_frequency_s = int(sys.argv[7]) # Optional
+gmail_address = None # Default to None, no email dump will occur
+gmail_app_password = None # Default to None
+if len(sys.argv) >= 10:
+  gmail_address = sys.argv[8] # Optional
+  gmail_app_password = sys.argv[9] # Optional
 scheduler_priority = 1
 list_tag = "(added by Alexa)"
 
@@ -78,6 +86,24 @@ def move_echo_items_to_wunderlist(echo_items, target_wunderlist, echo_remove_fun
     print "Removed item from Echo list: " + res.text + "\n"
   return moved_item
 
+# Function to email a message, used for crash notifications
+def email_dump(dump_text):
+  if (gmail_address is None) or (gmail_app_password is None):
+    print "No email provided for crash notification"
+    return
+  dump_message = MIMEText(dump_text)
+  dump_message['Subject'] = "Echo2Wunderlist Crash"
+  dump_message['From'] = echo_email
+  dump_message['To'] = gmail_address
+
+  server = smtplib.SMTP('smtp.gmail.com:587')
+  server.ehlo()
+  server.starttls()
+  server.login(gmail_address, gmail_app_password);
+  server.sendmail(echo_email, gmail_address, dump_message.as_string())
+  server.quit()
+  print "Sent crash notification to " + gmail_address
+
 # Main function, runs on a scheduler, takes the next scheduler object as a parameter
 def echo2wunderlist(next_scheduler):
   global echo
@@ -98,14 +124,22 @@ def echo2wunderlist(next_scheduler):
 
     if new_items_added == False:
       print "No new items\n"
-  except (requests.ConnectionError, requests.ReadTimeout) as e:
+  except (requests.ConnectionError, requests.ReadTimeout, KeyError) as e:
     print e
     print "Setting objects to None in attempt to reinitialize the connection\n"
+    dump_text = "e = {0}\n\nTraceback:\n{1}".format(e, traceback.format_exc())
+    email_dump(dump_text)
     echo = None
     wunderlist = None
+  except:
+    print "Unexpected error"
+    dump_text = "Unexpected Error\n\nTraceback:\n{0}".format(traceback.format_exc())
+    email_dump(dump_text)
+    raise
+
   next_scheduler.enter(scheduler_frequency_s, 1, echo2wunderlist, (next_scheduler,))
 
-# If the object creation was successful, start the scheduler to run forever
+# Start the scheduler to run forever
 print "Starting Echo2Wunderlist scheduler\n"
 echo2wunderlist_scheduler = sched.scheduler(time.time, time.sleep)
 echo2wunderlist_scheduler.enter(scheduler_frequency_s, scheduler_priority, echo2wunderlist, (echo2wunderlist_scheduler,))
