@@ -125,10 +125,13 @@ def echo2wunderlist(next_scheduler):
     if new_items_added == False:
       print "No new items\n"
   except (requests.ConnectionError, requests.ReadTimeout, KeyError) as e:
+    # ConnectionError - can happen when connection fails, or aborts
+    # ReadTimeout - can happen when trying to get data from the Echo API
+    # KeyError - can happen if invalid or malformed data comes back from the Echo API
     print e
     print "Setting objects to None in attempt to reinitialize the connection\n"
-    dump_text = "e = {0}\n\nTraceback:\n{1}".format(e, traceback.format_exc())
-    email_dump(dump_text)
+    #dump_text = "e = {0}\n\nTraceback:\n{1}".format(e, traceback.format_exc())
+    #email_dump(dump_text)
     echo = None
     wunderlist = None
   except:
